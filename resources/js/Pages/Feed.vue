@@ -100,7 +100,7 @@
                         <span>Like</span>
                     </button>
                     <span class="ml-4 text-gray-500"
-                        >{{ post.likes_count }} likes</span
+                        >{{ post.like_count }} likes</span
                     >
                 </div>
 
@@ -116,6 +116,8 @@
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
     props: {
         posts: Array,
@@ -128,31 +130,27 @@ export default {
             if (post.liking) return; // Cegah spam click
 
             const originalLiked = post.liked;
-            const originalLikesCount = post.likes_count;
+            const originalLikesCount = post.like_count;
 
             // Optimistic UI update
             post.liking = true;
             post.liked = !post.liked;
-            post.likes_count += post.liked ? 1 : -1;
+            post.like_count += post.liked ? 1 : -1;
             post.animating = true;
             setTimeout(() => {
                 post.animating = false;
             }, 300);
 
             try {
-                await this.$inertia.post(
-                    `/posts/${post.id}/like`,
-                    {},
-                    {
-                        preserveState: true,
-                        only: ["posts"], // optional: biar payload inertia kecil
-                    }
-                );
+                const response = await axios.post(`/posts/${post.id}/like`);
+                // Update jumlah likes dari respons server
+                post.like_count = response.data.like_count;
+                post.liked = response.data.liked;
             } catch (e) {
                 console.error("Failed to like/unlike:", e);
                 // Rollback kalau error
                 post.liked = originalLiked;
-                post.likes_count = originalLikesCount;
+                post.like_count = originalLikesCount;
             } finally {
                 post.liking = false;
             }

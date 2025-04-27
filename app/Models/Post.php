@@ -29,4 +29,9 @@ class Post extends Model
     {
         return $this->hasMany(Comment::class);
     }
+
+    public function getLikeCountAttribute()
+    {
+        return $this->likes()->count();
+    }
 }

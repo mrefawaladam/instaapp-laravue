@@ -13,10 +13,21 @@ class PostController extends Controller
 {
     public function index()
     {
-        $posts = Post::with('user')->latest()->get();
+        $userId = auth()->id(); // ID user yang sedang login
+        $posts = Post::with('user', 'likes')->latest()->get();
 
         return Inertia::render('Feed', [
-            'posts' => $posts
+            'posts' => $posts->map(function ($post) use ($userId) {
+                return [
+                    'id' => $post->id,
+                    'user' => $post->user,
+                    'image_url' => $post->image_url,
+                    'caption' => $post->caption,
+                    'created_at' => $post->created_at,
+                    'like_count' => $post->like_count,
+                    'liked' => $post->likes->contains('user_id', $userId), // Apakah user sudah like
+                ];
+            }),
         ]);
     }
 
@@ -46,9 +57,9 @@ class PostController extends Controller
     public function like(Post $post)
     {
         $user = auth()->user();
-    
+        
         $like = $post->likes()->where('user_id', $user->id)->first();
-    
+        
         if ($like) {
             // Kalau sudah like, hapus (unlike)
             $like->delete();
@@ -60,8 +71,12 @@ class PostController extends Controller
             ]);
             $liked = true;
         }
-    
-        return Inertia::location('/feed');
+
+        // Kembalikan respons JSON
+        return response()->json([
+            'liked' => $liked,
+            'like_count' => $post->like_count, // Hitung jumlah likes terbaru
+        ]);
     }
     
 
