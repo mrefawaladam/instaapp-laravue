@@ -15,11 +15,13 @@ Route::get('/register', [AuthController::class, 'showRegisterPage'])->name('regi
 Route::post('/register', [AuthController::class, 'register']);
 
  Route::middleware(['auth'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
     Route::get('/posts/create', [PostController::class, 'create'])->name('posts.create');
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
     Route::get('/feed', [PostController::class, 'index'])->name('feed'); // Feed
     Route::post('/posts/{post}/like', [PostController::class, 'like'])->middleware('auth');
     Route::post('/posts/{post}/comments', [PostController::class, 'addComment']);
     Route::put('/comments/{comment}', [PostController::class, 'updateComment']);
-Route::delete('/comments/{comment}', [PostController::class, 'deleteComment']);
+    Route::delete('/comments/{comment}', [PostController::class, 'deleteComment']);
 });

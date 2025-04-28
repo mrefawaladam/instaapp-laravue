@@ -1,14 +1,22 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\Request;
+
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Services\AuthService;
 
 class AuthController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
     public function showLoginPage()
     {
         return inertia('Login');
@@ -18,34 +26,34 @@ class AuthController extends Controller
     {
         return inertia('Register');
     }
- 
-    public function login(Request $request)
-    {
-        $credentials = $request->only('email', 'password');
 
-        if (Auth::attempt($credentials)) {
+    public function login(LoginRequest $request)
+    {
+        $credentials = $request->validated();
+
+        if ($this->authService->login($credentials)) {
             return redirect()->intended('/feed');
         }
 
         return back()->withErrors(['email' => 'Invalid credentials']);
     }
- 
-    public function register(Request $request)
+
+    public function register(RegisterRequest $request)
     {
-        $validated = $request->validate([
-            'email' => 'required|email|unique:users',
-            'name' => 'required',
-            'password' => 'required|min:8|confirmed',
-        ]);
+        $validated = $request->validated();
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ]);
-
-        Auth::login($user);
+        $this->authService->register($validated);
 
         return redirect('/feed');
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();  
+        $request->session()->invalidate();
+        
+        $request->session()->regenerateToken();
+
+        return redirect('/login'); 
     }
 }

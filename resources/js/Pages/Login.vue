@@ -8,21 +8,31 @@
             <h1 class="text-3xl font-semibold text-center text-gray-800">
                 InstaApp
             </h1>
+
+            <!-- Tampilkan error global -->
+            <div v-if="errors.email" class="text-red-500 text-sm text-center">
+                {{ errors.email }}
+            </div>
+
             <form @submit.prevent="login" class="space-y-4">
-                <input
-                    v-model="email"
-                    type="email"
-                    placeholder="Email"
-                    class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                />
-                <input
-                    v-model="password"
-                    type="password"
-                    placeholder="Password"
-                    class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                />
+                <div>
+                    <input
+                        v-model="email"
+                        type="email"
+                        placeholder="Email"
+                        class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                    />
+                </div>
+                <div>
+                    <input
+                        v-model="password"
+                        type="password"
+                        placeholder="Password"
+                        class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                    />
+                </div>
                 <button
                     type="submit"
                     class="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
@@ -30,6 +40,7 @@
                     Log In
                 </button>
             </form>
+
             <p class="text-center text-sm text-gray-600">
                 Don't have an account?
                 <a href="/register" class="text-purple-600 hover:underline"
@@ -42,6 +53,9 @@
 
 <script>
 export default {
+    props: {
+        errors: Object,
+    },
     data() {
         return {
             email: "",
@@ -50,14 +64,10 @@ export default {
     },
     methods: {
         async login() {
-            try {
-                await this.$inertia.post("/login", {
-                    email: this.email,
-                    password: this.password,
-                });
-            } catch (e) {
-                console.log(e);
-            }
+            await this.$inertia.post("/login", {
+                email: this.email,
+                password: this.password,
+            });
         },
     },
 };

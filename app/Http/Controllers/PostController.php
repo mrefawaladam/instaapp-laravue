@@ -1,22 +1,33 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Http\Requests\StorePostRequest;
+use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\UpdateCommentRequest;
+use App\Repositories\PostRepository;
+use App\Services\PostService;
 use App\Models\Post;
-use App\Models\Like;
-use Illuminate\Http\Request;
+use App\Models\Comment;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Storage;
-use App\Models\Comment; 
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // Tambahkan ini
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PostController extends Controller
 {
     use AuthorizesRequests;
-    public function index()
+
+    protected $postService;
+
+    public function __construct(PostService $postService)
+    {
+        $this->postService = $postService;
+    }
+
+    public function index(PostRepository $postRepository)
     {
         $userId = auth()->id();
-        $posts = Post::with(['user', 'likes', 'comments.user'])->latest()->get();
+        $posts = $postRepository->getAllPostsWithRelations();
 
         return Inertia::render('Feed', [
             'posts' => $posts->map(function ($post) use ($userId) {
@@ -46,59 +57,27 @@ class PostController extends Controller
         return Inertia::render('Posts/Create');
     }
 
-    public function store(Request $request)
+    public function store(StorePostRequest $request)
     {
-        $request->validate([
-            'image' => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
-            'caption' => ['nullable', 'string'],
-        ]);
-
-        $path = $request->file('image')->store('posts', 'public');
-
-        Post::create([
-            'user_id' => Auth::id(),
-            'image_url' => $path,
-            'caption' => $request->caption,
-        ]);
+        $path = $this->postService->uploadImage($request->file('image'));
+        $this->postService->createPost(Auth::id(), $path, $request->caption);
 
         return redirect()->route('feed')->with('success', 'Post created successfully!');
     }
 
     public function like(Post $post)
     {
-        $user = auth()->user();
-        
-        $like = $post->likes()->where('user_id', $user->id)->first();
-        
-        if ($like) {
-            // Kalau sudah like, hapus (unlike)
-            $like->delete();
-            $liked = false;
-        } else {
-            // Kalau belum like, tambahkan
-            $post->likes()->create([
-                'user_id' => $user->id,
-            ]);
-            $liked = true;
-        }
+        $liked = $this->postService->toggleLike($post, Auth::id());
 
-        // Kembalikan respons JSON
         return response()->json([
             'liked' => $liked,
-            'like_count' => $post->like_count, // Hitung jumlah likes terbaru
+            'like_count' => $post->like_count,
         ]);
     }
-    
-    public function addComment(Request $request, Post $post)
-    {
-        $request->validate([
-            'comment' => 'required|string|max:255',
-        ]);
 
-        $comment = $post->comments()->create([
-            'user_id' => auth()->id(),
-            'comment' => $request->comment,
-        ]);
+    public function addComment(StoreCommentRequest $request, Post $post)
+    {
+        $comment = $this->postService->addComment($post, Auth::id(), $request->comment);
 
         return response()->json([
             'id' => $comment->id,
@@ -108,29 +87,23 @@ class PostController extends Controller
         ]);
     }
 
-    public function updateComment(Request $request, Comment $comment)
+    public function updateComment(UpdateCommentRequest $request, Comment $comment)
     {
-        $this->authorize('update', $comment); // Cek hanya owner yang bisa edit
+        $this->authorize('update', $comment);
 
-        $request->validate([
-            'comment' => 'required|string|max:255',
-        ]);
-
-        $comment->update([
-            'comment' => $request->comment,
-        ]);
+        $updatedComment = $this->postService->updateComment($comment, $request->comment);
 
         return response()->json([
             'message' => 'Comment updated successfully.',
-            'comment' => $comment->comment,
+            'comment' => $updatedComment->comment,
         ]);
     }
 
     public function deleteComment(Comment $comment)
     {
-        $this->authorize('delete', $comment); // Cek hanya owner yang bisa delete
+        $this->authorize('delete', $comment);
 
-        $comment->delete();
+        $this->postService->deleteComment($comment);
 
         return response()->json([
             'message' => 'Comment deleted successfully.',
