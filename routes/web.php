@@ -3,13 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Home');
-});
+  
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PostController;
 
 Route::get('/login', [AuthController::class, 'showLoginPage'])->name('login');
+Route::get('/', [AuthController::class, 'showLoginPage']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/register', [AuthController::class, 'showRegisterPage'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);

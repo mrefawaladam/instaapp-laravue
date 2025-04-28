@@ -20,6 +20,7 @@
             <form @submit.prevent="register" class="space-y-4">
                 <input
                     v-model="name"
+                    3
                     type="text"
                     placeholder="Name"
                     class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
