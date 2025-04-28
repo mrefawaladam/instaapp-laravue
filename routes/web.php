@@ -19,5 +19,7 @@ Route::post('/register', [AuthController::class, 'register']);
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
     Route::get('/feed', [PostController::class, 'index'])->name('feed'); // Feed
     Route::post('/posts/{post}/like', [PostController::class, 'like'])->middleware('auth');
-
+    Route::post('/posts/{post}/comments', [PostController::class, 'addComment']);
+    Route::put('/comments/{comment}', [PostController::class, 'updateComment']);
+Route::delete('/comments/{comment}', [PostController::class, 'deleteComment']);
 });

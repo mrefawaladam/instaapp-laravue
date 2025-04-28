@@ -53,6 +53,7 @@
                 :key="post.id"
                 class="bg-white rounded-lg shadow-md p-6"
             >
+                <!-- User info -->
                 <div class="flex items-center mb-4">
                     <div class="w-10 h-10 bg-gray-300 rounded-full"></div>
                     <div class="ml-3">
@@ -62,11 +63,15 @@
                         </p>
                     </div>
                 </div>
+
+                <!-- Post image -->
                 <img
                     :src="`/storage/${post.image_url}`"
                     alt="Post Image"
                     class="w-full rounded-lg mb-4"
                 />
+
+                <!-- Like button -->
                 <div class="flex items-center mb-2">
                     <button
                         @click="likePost(post)"
@@ -75,6 +80,7 @@
                             post.liked ? 'text-pink-500' : 'text-gray-400',
                         ]"
                     >
+                        <!-- Heart icon -->
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             class="w-7 h-7 transition-transform duration-300 transform"
@@ -104,12 +110,87 @@
                     >
                 </div>
 
-                <div class="text-gray-800">
+                <!-- Caption -->
+                <div class="text-gray-800 mb-4">
                     <p v-if="post.caption" class="font-semibold">
                         {{ post.user.name }}:
                     </p>
                     <p v-if="post.caption">{{ post.caption }}</p>
                 </div>
+
+                <!-- Comments List -->
+                <div
+                    v-if="post.comments && post.comments.length"
+                    class="space-y-2 mb-4"
+                >
+                    <div
+                        v-for="comment in post.comments"
+                        :key="comment.id"
+                        class="text-sm text-gray-700 flex items-center justify-between"
+                    >
+                        <div class="flex-1">
+                            <span v-if="!comment.editing" class="font-semibold">
+                                {{ comment.user }}:
+                            </span>
+                            <span v-if="!comment.editing">{{
+                                comment.comment
+                            }}</span>
+                            <input
+                                v-else
+                                v-model="comment.editComment"
+                                class="w-full border rounded px-2 py-1 text-sm focus:outline-none focus:ring focus:border-purple-400"
+                            />
+                        </div>
+                        <div class="flex items-center space-x-2 ml-2">
+                            <button
+                                v-if="!comment.editing"
+                                @click="startEditComment(post, comment)"
+                                class="text-blue-500 text-xs"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                v-else
+                                @click="updateComment(post, comment)"
+                                class="text-green-500 text-xs"
+                            >
+                                Save
+                            </button>
+                            <button
+                                v-if="comment.editing"
+                                @click="cancelEditComment(comment)"
+                                class="text-gray-500 text-xs"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                @click="deleteComment(post, comment)"
+                                class="text-red-500 text-xs"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Comment Form -->
+                <form
+                    @submit.prevent="submitComment(post)"
+                    class="flex items-center mt-2"
+                >
+                    <input
+                        v-model="post.newComment"
+                        type="text"
+                        placeholder="Add a comment..."
+                        class="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring focus:border-purple-400"
+                    />
+                    <button
+                        type="submit"
+                        class="ml-2 text-purple-600 hover:text-purple-800 font-semibold text-sm"
+                    >
+                        Post
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -121,6 +202,7 @@ import axios from "axios";
 export default {
     props: {
         posts: Array,
+        currentUserId: Number,
     },
     methods: {
         formatDate(date) {
@@ -153,6 +235,65 @@ export default {
                 post.like_count = originalLikesCount;
             } finally {
                 post.liking = false;
+            }
+        },
+        async submitComment(post) {
+            if (!post.newComment || post.newComment.trim() === "") return;
+
+            const commentText = post.newComment;
+            post.newComment = "";
+
+            try {
+                const response = await axios.post(
+                    `/posts/${post.id}/comments`,
+                    {
+                        comment: commentText,
+                    }
+                );
+
+                if (!post.comments) {
+                    post.comments = [];
+                }
+                post.comments.push({
+                    id: response.data.id,
+                    user: response.data.user,
+                    comment: response.data.comment,
+                    created_at: response.data.created_at,
+                });
+            } catch (error) {
+                console.error("Failed to submit comment:", error);
+            }
+        },
+        startEditComment(post, comment) {
+            comment.editing = true;
+            comment.editComment = comment.comment; // Simpan nilai asli
+        },
+        async updateComment(post, comment) {
+            try {
+                const response = await axios.put(`/comments/${comment.id}`, {
+                    comment: comment.editComment,
+                });
+                comment.comment = response.data.comment; // Perbarui komentar
+                comment.editing = false; // Keluar dari mode edit
+            } catch (e) {
+                console.error("Failed to update comment:", e);
+            }
+        },
+        cancelEditComment(comment) {
+            comment.editing = false; // Keluar dari mode edit
+            comment.editComment = ""; // Reset nilai edit
+        },
+        async deleteComment(post, comment) {
+            if (!confirm("Are you sure you want to delete this comment?"))
+                return;
+
+            try {
+                await axios.delete(`/comments/${comment.id}`);
+                post.comments = post.comments.filter(
+                    (c) => c.id !== comment.id
+                );
+            } catch (e) {
+                console.error("Failed to delete comment:", e);
             }
         },
     },

@@ -7,14 +7,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
-
+use App\Models\Comment; 
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // Tambahkan ini
 
 class PostController extends Controller
 {
+    use AuthorizesRequests;
     public function index()
     {
-        $userId = auth()->id(); // ID user yang sedang login
-        $posts = Post::with('user', 'likes')->latest()->get();
+        $userId = auth()->id();
+        $posts = Post::with(['user', 'likes', 'comments.user'])->latest()->get();
 
         return Inertia::render('Feed', [
             'posts' => $posts->map(function ($post) use ($userId) {
@@ -25,7 +27,15 @@ class PostController extends Controller
                     'caption' => $post->caption,
                     'created_at' => $post->created_at,
                     'like_count' => $post->like_count,
-                    'liked' => $post->likes->contains('user_id', $userId), // Apakah user sudah like
+                    'liked' => $post->likes->contains('user_id', $userId),
+                    'comments' => $post->comments->map(function ($comment) {
+                        return [
+                            'id' => $comment->id,
+                            'user' => $comment->user->name,
+                            'comment' => $comment->comment,
+                            'created_at' => $comment->created_at,
+                        ];
+                    }),
                 ];
             }),
         ]);
@@ -79,5 +89,51 @@ class PostController extends Controller
         ]);
     }
     
+    public function addComment(Request $request, Post $post)
+    {
+        $request->validate([
+            'comment' => 'required|string|max:255',
+        ]);
 
+        $comment = $post->comments()->create([
+            'user_id' => auth()->id(),
+            'comment' => $request->comment,
+        ]);
+
+        return response()->json([
+            'id' => $comment->id,
+            'user' => $comment->user->name,
+            'comment' => $comment->comment,
+            'created_at' => $comment->created_at,
+        ]);
+    }
+
+    public function updateComment(Request $request, Comment $comment)
+    {
+        $this->authorize('update', $comment); // Cek hanya owner yang bisa edit
+
+        $request->validate([
+            'comment' => 'required|string|max:255',
+        ]);
+
+        $comment->update([
+            'comment' => $request->comment,
+        ]);
+
+        return response()->json([
+            'message' => 'Comment updated successfully.',
+            'comment' => $comment->comment,
+        ]);
+    }
+
+    public function deleteComment(Comment $comment)
+    {
+        $this->authorize('delete', $comment); // Cek hanya owner yang bisa delete
+
+        $comment->delete();
+
+        return response()->json([
+            'message' => 'Comment deleted successfully.',
+        ]);
+    }
 }
